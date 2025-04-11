@@ -26,6 +26,9 @@ RUN apt-get update && apt-get install -y \
 # Update pip
 RUN pip install --upgrade pip
 
+# Explicitly install streamlit to ensure it's available
+RUN pip install streamlit
+
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt || echo "Some packages failed to install, continuing build"
@@ -38,10 +41,19 @@ COPY . .
 ENV DISPLAY=:99
 ENV PYTHONUNBUFFERED=1
 
-# Create entrypoint script
-RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1024x768x16 &\nsleep 1\nstreamlit run app.py' > /app/entrypoint.sh \
+# Create improved entrypoint script with error handling for Xvfb
+RUN echo '#!/bin/bash\n\
+# Remove any stale X lock files\n\
+rm -f /tmp/.X99-lock\n\
+rm -f /tmp/.X11-unix/X99\n\
+\n\
+# Start Xvfb in the background\n\
+Xvfb :99 -screen 0 1024x768x16 &\n\
+sleep 2\n\
+\n\
+# Run the application\n\
+exec streamlit run app.py\n' > /app/entrypoint.sh \
     && chmod +x /app/entrypoint.sh
 
-# Run the application with Xvfb
+# Set entrypoint to our script
 ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["streamlit", "run", "app.py"]
