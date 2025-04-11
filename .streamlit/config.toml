@@ -1,0 +1,17 @@
+[general]
+showWarningOnDirectExecution = false
+email = ""
+disableWatchdogWarning = true
+
+[server]
+enableXsrfProtection = false
+enableCORS = false
+headless = true
+enableTelemetry = false
+port = 10000
+address = "0.0.0.0"
+
+[browser]
+gatherUsageStats = false
+serverAddress = "0.0.0.0"
+serverPort = 10000

@@ -6,11 +6,15 @@ chardet==5.2.0
 pillow==10.2.0
 beautifulsoup4==4.12.3
 browser-use
-pyautogui
-keyboard
+
+# GUI dependencies (only needed for certain features)
+pyautogui; platform_system != "Linux" or platform_system == "Linux" and python_version < "3.0"
+keyboard; platform_system != "Linux" or platform_system == "Linux" and python_version < "3.0"
+pynput; platform_system != "Linux" or platform_system == "Linux" and python_version < "3.0"
+
+# Other dependencies
 language_tool_python
 pyperclip
-pynput
 pydantic
 pydantic_ai
 python-docx-template
