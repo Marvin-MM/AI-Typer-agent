@@ -37,7 +37,9 @@ RUN pip install pynput
 RUN pip install pyautogui
 RUN pip install pydantic
 RUN pip install pydantic-ai
-RUN pip install python-docx-template
+RUN pip install langchain-google-genai
+RUN pip install docx-python
+RUN pip install docx2python
 RUN pip install pyperclip
 
 
