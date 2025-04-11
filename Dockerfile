@@ -30,6 +30,8 @@ RUN pip install --upgrade pip
 RUN pip install streamlit
 
 RUN pip install chardet==5.2.0
+RUN pip install python-docx==1.1.0
+RUN pip install language_tool_python
 
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
