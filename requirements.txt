@@ -16,5 +16,6 @@ pynput; platform_system != "Linux" or platform_system == "Linux" and python_vers
 language_tool_python
 pyperclip
 pydantic
+chardet
 pydantic_ai
 python-docx-template
