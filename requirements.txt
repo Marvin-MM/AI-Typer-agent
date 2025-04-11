@@ -6,16 +6,11 @@ chardet==5.2.0
 pillow==10.2.0
 beautifulsoup4==4.12.3
 browser-use
-python-docx
-docxpython
-tempfile
-pypandoc
 pyautogui
 keyboard
 language_tool_python
 pyperclip
-difflib
-streamlit
 pynput
 pydantic
 pydantic_ai
+python-docx-template
