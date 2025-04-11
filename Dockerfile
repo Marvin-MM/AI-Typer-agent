@@ -29,6 +29,8 @@ RUN pip install --upgrade pip
 # Explicitly install streamlit to ensure it's available
 RUN pip install streamlit
 
+RUN pip install chardet==5.2.0
+
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt || echo "Some packages failed to install, continuing build"
