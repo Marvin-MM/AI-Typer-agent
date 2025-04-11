@@ -1,0 +1,706 @@
+
+                6. Type the following document content precisely, character by character:
+                
+                {document_content}
+                
+                CRITICAL TYPING INSTRUCTIONS:
+                - Type at a moderate pace (about {self.typing_speed} chars/sec) for maximum accuracy
+                - Maintain the exact formatting of the document including all whitespace, indentation, and special characters
+                - Do not skip any lines or paragraphs
+                - Do not add any explanations or additional text
+                - Verify the cursor position before each paragraph to ensure proper placement
+                - If facing any obstacles, try to overcome them (like clicking in the correct field, focusing the editor, etc.)
+                - Type the ENTIRE document - do not stop until ALL content is entered
+                - After typing, verify the document content is complete
+                
+                Your success depends on accurately typing EVERY character in the document.
+
+                                6. Wait for the right_hand agent to finish typing
+
+                                import os
+from pathlib import Path
+import tempfile
+import streamlit as st
+from utils import extract_file_content, is_valid_doc, process_document
+from vclass_automation import VClassAutomation
+from validation import (
+    validate_credentials, 
+    validate_document_content, 
+    validate_browser_settings,
+    validate_chunk_settings,
+    handle_automation_error,
+    display_error_details
+)
+import asyncio
+import logging
+import io
+import chardet
+import mimetypes
+import docx
+import re
+from typing import List, Dict, Any, Optional
+from PIL import Image
+# import utils
+
+
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Streamlit page configuration
+st.set_page_config(
+    page_title="VClass JailBreaker",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Initialize session state
+if 'processing_status' not in st.session_state:
+    st.session_state.processing_status = None
+if 'result' not in st.session_state:
+    st.session_state.result = None
+if 'file_info' not in st.session_state:
+    st.session_state.file_info = None
+if 'screenshots' not in st.session_state:
+    st.session_state.screenshots = []
+
+# Sidebar configuration
+with st.sidebar:
+    st.header("Settings")
+    st.markdown("### Keep Your Credentials Safe and also Don't Set what you don't know")
+    st.markdown("Configure your preferences and automation reset settings here.")
+    # VClass credentials
+    st.subheader("VClass Credentials")
+    reg_number = st.text_input("Registration Number", help="Your VClass registration number")
+    password = st.text_input("Password", type="password", help="Your VClass password")
+    
+    st.subheader("Browser Settings")
+    
+    typing_speed = st.slider(
+        "Typing Speed",
+        min_value=10,
+        max_value=200,
+        value=50,
+        help="Characters per second for typing"
+    )
+            
+    chunk_size = st.slider(
+        "Chunk Size for Large Documents",
+        min_value=500,
+        max_value=10000,
+        value=2000,
+        help="Characters per chunk when processing large documents"
+    )
+    
+    with st.expander("More Options", expanded=False):
+        st.markdown("### ⚙️ Additional Settings")
+        st.markdown("""
+        - **Headless Mode**: Run the browser in the background without a visible window.        
+        - **Keep as Docx**: Retains the document in its original format for better compatibility.
+        """)
+
+        st.divider()  # Optional: Adds a thin line for separation
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            headless_mode = st.checkbox(
+                "Headless Mode🕶️ ",
+                value=True,
+                help="Run browser in background (no visible window)"
+            )
+
+        with col2:
+            doc_type = st.selectbox(
+                "📄 Document Type",
+                options=["Docx / Word Document", "PDF", "TXT", "ODT"],
+                help="Select the type of document you are uploading"
+            )
+
+    take_screenshots = st.checkbox(
+        "Capture Screenshots",
+        value=True,
+        help="Take screenshots during the automation process"
+    )
+
+    # Footer in sidebar
+    st.markdown("---")  # Horizontal line
+    st.write("📍 Powered by **Nexus DevOps** | Made with ❤️ in Uganda")
+    st.write("📧 Contact: support@dontcall.com | 🌐 [yourwebsite.com](https://.com)")
+    st.caption("© 2025 . No Data is Stored on this site. All data is processed locally.")
+
+# Main content
+col1, col2 = st.columns([8, 1])  # Adjust proportions as needed
+
+with col1:
+    st.title("VClass Typer JailBreaker")
+
+with col2:
+    if st.button("💬", help="Show Info Dialog"):
+        st.session_state.show_dialog = not st.session_state.get("show_dialog", False)
+
+# Dialog Logic
+if st.session_state.get("show_dialog", False):
+    with st.container():
+        st.markdown("### 🗨️ Read with caution")
+        st.info("""
+        This application automates the process of typing documents into the VClass online editor.
+        Upload your document, provide your credentials, and let the automation handle the rest.
+        """)
+
+        if st.button("❌ Close"):
+            st.session_state.show_dialog = False
+
+st.markdown("\n \n \n")
+st.divider()
+
+
+
+# Create tabs for better organization
+tab1, tab2, tab3 = st.tabs(["🔧 Typer Agent Document", "⚙️ Automation", "⭐ Support Us 💰💰"])
+
+with tab1:
+    with st.form("vclass_form"):
+        st.markdown("### 📤 Upload Your Document")
+        st.markdown("""
+        Drag and drop your document below or click **Browse Files**.  
+        Supported formats: **.docx**, **.txt**, **.pdf**, **.md**
+        # """)
+ 
+        st.caption("**Note:** Ensure your document is in a supported format and contains valid content.")
+        uploaded_file = st.file_uploader("Upload Document", type=["txt", "docx", "py", "md"])
+        
+        submitted = st.form_submit_button("Start Typer")
+        # # Main processing logic
+
+        if uploaded_file is not None:
+        # Validate the document
+            is_valid, validation_result = is_valid_doc(uploaded_file)
+        
+            if not is_valid:
+                st.error(f"Invalid document: {validation_result}")
+        else:
+            # Store file info in session state
+            st.session_state.file_info = validation_result
+            
+            # Extract file content
+            try:
+                file_content = extract_file_content(uploaded_file, validation_result)
+                
+                # Display file info and preview
+                st.success(f"Valid {validation_result['type'].upper()} file: {uploaded_file.name} Detected ({validation_result['size']/1024:.1f} KB)")
+                
+                with st.expander("📄 Document Preview", expanded=False):
+                    st.markdown("#### 🧾 File Content:")
+
+                    if validation_result['type'] == 'py':
+                        # Use code highlighting for code files
+                        st.code(file_content, language=validation_result['type'])
+                    else:
+                        # Use scrollable text area for documents
+                        st.text_area(
+                            label="Content Preview",
+                            value=file_content,
+                            height=400,
+                            disabled=True
+                        )
+                st.divider()
+
+
+                is_valid, error_message = validate_credentials(reg_number, password)
+                if not is_valid:
+                    st.warning(error_message)
+                else:
+                    # Process button
+
+                    col1, col2 = st.columns([1, 2])
+                    with col1:
+                        if st.button("Process Document", key="process_btn", use_container_width=True):
+                            st.session_state.processing_status = "started"
+                            st.caption("Close all the chrome tabs to avoid errors")
+                            
+                            # Progress tracking
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+                            
+                            def update_progress(message, progress):
+                                status_text.info(message)
+                                progress_bar.progress(progress)
+                            
+                            try:
+                                # Run async processing
+                                result = asyncio.run(process_document(
+                                    file_content, 
+                                    validation_result, 
+                                    reg_number,
+                                    password,
+                                    typing_speed,
+                                    update_progress,
+                                    take_screenshots,
+                                    headless_mode,
+                                    chunk_size
+                                ))
+                                
+                                st.session_state.result = result
+                                st.session_state.processing_status = "completed"
+                                progress_bar.progress(1.0)
+                                
+                                if result.get("success", False):
+                                    status_text.success("Processing complete!")
+                                else:
+                                    status_text.error("Processing failed!")
+                                    
+                                st.rerun()  # Refresh to show results
+                                
+                            except Exception as e:
+                                error_result = handle_automation_error(e)
+                                st.session_state.result = error_result
+                                st.session_state.processing_status = "failed"
+                                status_text.error("Processing failed")
+                                st.rerun()
+
+                st.divider()
+                # Advanced options expander - moved here for better flow
+                with st.expander("Advanced Options"):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:  
+                        # These fields will use the values from sidebar by default
+                        st.text_input("Override Registration Number", value="", help="Leave empty to use sidebar value")
+                        st.text_input("Override Password", type="password", value="", help="Leave empty to use sidebar value")
+                        
+                    with col2:
+                        st.number_input("Override Typing Speed", value=0, min_value=0, max_value=100, 
+                                        help="Set to 0 to use sidebar value")
+                    
+            except Exception as e:
+                st.error(f"Error processing document: {str(e)}")
+                logger.error(f"Processing error: {str(e)}")
+            
+        
+
+        st.caption("When Document is Uploaded Successfully please leave the cursor on the screen to start typing.")
+        # Improved UI with better default settings
+        with st.expander("Advanced Options", expanded=False):
+            typing_speed = st.slider(
+                "Typing Speed (characters per second)", 
+                15, 50, 25, 
+                help="Lower speed is more accurate but takes longer"
+            )
+            
+            chunk_size = st.slider(
+                "Chunk Size (characters)", 
+                1000, 10000, 3000, 
+                help="Smaller chunks are more reliable but require more processing"
+            )
+        
+            col_a, col_b = st.columns(2)
+            with col_a:
+                headless = st.checkbox("Headless Mode", value=True, 
+                                    help="Run browser in background")
+            with col_b:
+                take_screenshots = st.checkbox("Take Screenshots", value=True,
+                                            help="Capture screenshots during automation")
+        
+        
+    if submitted:
+        if not uploaded_file:
+            st.error("Please upload a document file")
+        elif not reg_number:
+            st.error("Please enter your registration number")
+        elif not password:
+            st.error("Please enter your password")
+        else:
+            # Save uploaded file temporarily
+            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(uploaded_file.name).suffix) as tmp:
+                tmp.write(uploaded_file.getvalue())
+                tmp_path = tmp.name
+            
+            # Display progress with more detail
+            st.info("Starting automation process...")
+            progress_container = st.container()
+            with progress_container:
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                def update_progress(message, value):
+                    status_text.text(message)
+                    progress_bar.progress(value)
+            
+            # Run automation asynchronously
+            result_container = st.container()
+
+with tab2:
+    st.subheader("Settings Guide")
+    st.write("""
+    - **Typing Speed**: Reduce this for more accurate typing (recommended: 20-25 chars/sec)
+    - **Chunk Size**: For larger documents, smaller chunks are processed more reliably
+    - **Headless Mode**: Run the browser invisibly in the background
+    - **Screenshots**: Capture images to verify the document was typed correctly
+    """)
+    
+    st.subheader("Troubleshooting")
+    st.write("""
+    If the automation is not working correctly:
+    1. Try a slower typing speed (15-20 chars/sec)
+    2. Use smaller chunk sizes (2000-3000 chars)
+    3. Make sure your login credentials are correct
+    4. Check that the document format is supported (.txt, .docx, .py, .md)
+    5. For complex documents, consider simplifying the formatting
+    """)
+
+with tab3:
+    st.subheader("Support Us")
+
+# File validation functions
+# def is_valid_doc(file):
+#     """Validate if file is a proper document type with valid content"""
+#     try:
+#         file_extension = file.name.split('.')[-1].lower()
+#         mime_type = mimetypes.guess_type(file.name)[0]
+        
+#         # Check file size (under 10MB)
+#         file_size = len(file.getvalue())
+#         if file_size > 10 * 1024 * 1024:  # 10MB
+#             return False, "File too large (max 10MB)"
+        
+#         # Document specific validation
+#         if file_extension == 'docx':
+#             try:
+#                 doc = docx.Document(io.BytesIO(file.getvalue()))
+#                 # Check if document has content
+#                 has_content = any(len(para.text.strip()) > 0 for para in doc.paragraphs)
+#                 if not has_content:
+#                     return False, "DOCX file appears to be empty"
+#                 return True, {"type": "docx", "mime": mime_type, "size": file_size}
+#             except Exception as e:
+#                 return False, f"Invalid DOCX file: {str(e)}"
+                
+#         elif file_extension in ['txt', 'py', 'md']:
+#             try:
+#                 # Detect encoding and try to read content
+#                 raw_data = file.getvalue()
+#                 detected = chardet.detect(raw_data)
+#                 encoding = detected['encoding'] if detected['encoding'] else 'utf-8'
+                
+#                 content = raw_data.decode(encoding)
+#                 if not content.strip():
+#                     return False, "File appears to be empty"
+#                 return True, {"type": file_extension, "mime": mime_type, "size": file_size, "encoding": encoding}
+#             except Exception as e:
+#                 return False, f"Error reading file: {str(e)}"
+#         else:
+#             return False, f"Unsupported file type: {file_extension}"
+            
+#     except Exception as e:
+#         logger.error(f"Validation error: {str(e)}")
+#         return False, f"Validation error: {str(e)}"
+
+# # Extract text content from different file types
+# def extract_file_content(file, file_info):
+#     """Extract text content from various file types"""
+
+    
+#     try:
+#         if file_info["type"] == "docx":
+#             doc = docx.Document(io.BytesIO(file.getvalue()))
+#             return "\n".join([para.text for para in doc.paragraphs])
+#         else:  # txt, py, md
+#             encoding = file_info.get("encoding", "utf-8")
+#             try:
+#                 return file.getvalue().decode(encoding)
+#             except UnicodeDecodeError:
+#                 # Fallback to latin-1 if detected encoding fails
+#                 return file.getvalue().decode('latin-1', errors='replace')
+#     except Exception as e:
+#         logger.error(f"Content extraction error: {str(e)}")
+#         raise Exception(f"Failed to extract content: {str(e)}")
+
+# # Split content into manageable chunks
+# def chunk_content(content, chunk_size):
+#     """Split large content into manageable chunks"""
+#     # Try to split at paragraph boundaries if possible
+#     chunks = []
+#     paragraphs = content.split("\n")
+#     current_chunk = ""
+    
+#     for para in paragraphs:
+#         if len(current_chunk) + len(para) + 1 <= chunk_size:
+#             if current_chunk:
+#                 current_chunk += "\n" + para
+#             else:
+#                 current_chunk = para
+#         else:
+#             # If paragraph itself is longer than chunk size, split it
+#             if len(para) > chunk_size:
+#                 words = para.split(" ")
+#                 temp_chunk = ""
+#                 for word in words:
+#                     if len(temp_chunk) + len(word) + 1 <= chunk_size:
+#                         if temp_chunk:
+#                             temp_chunk += " " + word
+#                         else:
+#                             temp_chunk = word
+#                     else:
+#                         if current_chunk:
+#                             chunks.append(current_chunk)
+#                         current_chunk = temp_chunk
+#                         temp_chunk = word
+#                 if temp_chunk:
+#                     current_chunk = temp_chunk
+#             else:
+#                 # Add the current chunk and start a new one
+#                 chunks.append(current_chunk)
+#                 current_chunk = para
+    
+#     # Add the last chunk if it's not empty
+#     if current_chunk:
+#         chunks.append(current_chunk)
+    
+#     return chunks
+
+# # Process document through browser automation
+# async def process_document(file_content, file_info, reg_number, password, typing_speed, progress_callback, take_screenshots, headless, chunk_size):
+#     """Process document using browser automation"""
+#     try:
+#         # Validate inputs
+#         is_valid, error_message = validate_credentials(reg_number, password)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+        
+#         is_valid, error_message = validate_document_content(file_content)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+        
+#         is_valid, error_message = validate_browser_settings(headless, typing_speed)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+        
+#         is_valid, error_message = validate_chunk_settings(chunk_size)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+        
+#         # Clear any previous screenshots
+#         st.session_state.screenshots = []
+        
+#         # Prepare content chunks if needed
+#         content_chunks = []
+#         if len(file_content) > chunk_size:
+#             content_chunks = chunk_content(file_content, chunk_size)
+#             progress_callback(f"Document split into {len(content_chunks)} chunks for processing", 0.1)
+#         else:
+#             content_chunks = [file_content]
+        
+#         # Initialize automation
+#         automation = VClassAutomation(headless=headless, typing_speed=typing_speed)
+        
+#         # Process each chunk
+#         results = []
+#         for i, chunk in enumerate(content_chunks):
+#             progress_value = 0.1 + ((i / len(content_chunks)) * 0.8)
+#             progress_callback(f"Processing chunk {i+1} of {len(content_chunks)}", progress_value)
+            
+#             # For first chunk, do full navigation
+#             if i == 0:
+#                 result = await automation.run_automation(
+#                     reg_number=reg_number,
+#                     password=password,
+#                     document_content=chunk,
+#                     take_screenshots=take_screenshots,
+#                     progress_callback=progress_callback
+#                 )
+#                 results.append(result)
+                
+#                 # If first chunk fails, stop processing
+#                 if not result.get("success", False):
+#                     return result
+                
+#                 # Store screenshots
+#                 if "screenshots" in result:
+#                     st.session_state.screenshots.extend(result["screenshots"])
+#             else:
+#                 # For subsequent chunks, just type content (assuming we're already in editor)
+#                 result = await automation.run_automation(
+#                     reg_number=reg_number,
+#                     password=password,
+#                     document_content=chunk,
+#                     take_screenshots=take_screenshots,
+#                     progress_callback=progress_callback
+#                 )
+#                 results.append(result)
+                
+#                 # If any chunk fails, return the error
+#                 if not result.get("success", False):
+#                     return result
+                
+#                 # Store screenshots
+#                 if "screenshots" in result:
+#                     st.session_state.screenshots.extend(result["screenshots"])
+        
+#         # All chunks processed successfully
+#         return {
+#             "success": True,
+#             "message": f"Document successfully typed into VClass editor ({len(content_chunks)} chunks)",
+#             "screenshots": st.session_state.screenshots
+#         }
+
+#     except Exception as e:
+#         logger.error(f"Processing error: {str(e)}")
+#         return handle_automation_error(e)
+
+# # Helper function to display screenshots
+# def display_screenshots(screenshots):
+#     """Display screenshots with proper formatting"""
+#     if not screenshots:
+#         st.warning("No screenshots captured during processing")
+#         return
+    
+#     for i, screenshot in enumerate(screenshots):
+#         try:
+#             # Display the screenshot
+#             st.image(
+#                 screenshot["data"],
+#                 caption=screenshot.get("caption", f"Screenshot {i+1}"),
+#                 use_column_width=True
+#             )
+#         except Exception as e:
+#             st.error(f"Error displaying screenshot {i+1}: {str(e)}")
+
+# # Main content area
+# st.markdown("### 📤 Upload Your Document")
+
+# st.markdown("""
+# Drag and drop your document below or click **Browse Files**.  
+# Supported formats: **.docx**, **.txt**, **.pdf**, **.md**
+# """)
+
+# uploaded_file = st.file_uploader(
+#     label="",
+#     type=["docx", "txt", "pdf", "md"],
+#     accept_multiple_files=False,
+#     help="Upload a document to process (Docx, Text, PDF, or Markdown)"
+# )
+
+# # Main processing logic
+# if uploaded_file is not None:
+#     # Validate the document
+#     is_valid, validation_result = is_valid_doc(uploaded_file)
+    
+#     if not is_valid:
+#         st.error(f"Invalid document: {validation_result}")
+#     else:
+#         # Store file info in session state
+#         st.session_state.file_info = validation_result
+        
+#         # Extract file content
+#         try:
+#             file_content = extract_file_content(uploaded_file, validation_result)
+            
+#             # Display file info and preview
+#             st.success(f"Valid {validation_result['type'].upper()} file: {uploaded_file.name} Detected ({validation_result['size']/1024:.1f} KB)")
+            
+#             with st.expander("📄 Document Preview", expanded=False):
+#                 st.markdown("#### 🧾 File Content:")
+
+#                 if validation_result['type'] == 'py':
+#                     # Use code highlighting for code files
+#                     st.code(file_content, language=validation_result['type'])
+#                 else:
+#                     # Use scrollable text area for documents
+#                     st.text_area(
+#                         label="Content Preview",
+#                         value=file_content,
+#                         height=400,
+#                         disabled=True
+#                     )
+#             st.divider()
+
+
+#             is_valid, error_message = validate_credentials(reg_number, password)
+#             if not is_valid:
+#                 st.warning(error_message)
+#             else:
+#                 # Process button
+
+#                 col1, col2 = st.columns([1, 2])
+#                 with col1:
+#                     if st.button("Process Document", key="process_btn", use_container_width=True):
+#                         st.session_state.processing_status = "started"
+#                         st.caption("Close all the chrome tabs to avoid errors")
+                        
+#                         # Progress tracking
+#                         progress_bar = st.progress(0)
+#                         status_text = st.empty()
+                        
+#                         def update_progress(message, progress):
+#                             status_text.info(message)
+#                             progress_bar.progress(progress)
+                        
+#                         try:
+#                             # Run async processing
+#                             result = asyncio.run(process_document(
+#                                 file_content, 
+#                                 validation_result, 
+#                                 reg_number,
+#                                 password,
+#                                 typing_speed,
+#                                 update_progress,
+#                                 take_screenshots,
+#                                 headless_mode,
+#                                 chunk_size
+#                             ))
+                            
+#                             st.session_state.result = result
+#                             st.session_state.processing_status = "completed"
+#                             progress_bar.progress(1.0)
+                            
+#                             if result.get("success", False):
+#                                 status_text.success("Processing complete!")
+#                             else:
+#                                 status_text.error("Processing failed!")
+                                
+#                             st.rerun()  # Refresh to show results
+                            
+#                         except Exception as e:
+#                             error_result = handle_automation_error(e)
+#                             st.session_state.result = error_result
+#                             st.session_state.processing_status = "failed"
+#                             status_text.error("Processing failed")
+#                             st.rerun()
+
+#             st.divider()
+#             # Advanced options expander - moved here for better flow
+#             with st.expander("Advanced Options"):
+#                 col1, col2 = st.columns(2)
+                
+#                 with col1:  
+#                     # These fields will use the values from sidebar by default
+#                     st.text_input("Override Registration Number", value="", help="Leave empty to use sidebar value")
+#                     st.text_input("Override Password", type="password", value="", help="Leave empty to use sidebar value")
+                    
+#                 with col2:
+#                     st.number_input("Override Typing Speed", value=0, min_value=0, max_value=100, 
+#                                     help="Set to 0 to use sidebar value")
+                  
+#         except Exception as e:
+#             st.error(f"Error processing document: {str(e)}")
+#             logger.error(f"Processing error: {str(e)}")
+
+# # Display results
+# if st.session_state.processing_status == "completed" and st.session_state.result:
+#     st.divider()
+#     st.subheader("Processing Results")
+    
+#     if not st.session_state.result.get("success", False):
+#         display_error_details(st.session_state.result)
+#     else:
+#        
+#         # Show any screenshots
+#         if st.session_state.result.get("screenshots"):
+#             with st.expander("Process Screenshots", expanded=True):
+#                 display_screenshots(st.session_state.result["screenshots"])
+         st.success("Document processed successfully!")
+        
+#         # Show result summary
+#         st.info(st.session_state.result.get("message", "Document was processed"))

@@ -1,0 +1,536 @@
+import os
+import time
+import sys
+import asyncio
+from typing import List, Optional, Dict, Any, Tuple
+import re
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent
+#Groq 
+from pydantic_ai.models.groq import GroqModel
+from dotenv import load_dotenv
+import traceback
+from pynput.mouse import Button, Controller as MouseController
+from pynput.keyboard import Controller as KeyboardController, Key
+import logging
+from difflib import SequenceMatcher
+from helpers import GrammarChecker
+from models import DocumentContent, RetypedDocument
+from typer import RealKeyboardTyper
+
+
+from analyzer import analyze_docx
+
+load_dotenv()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class DocumentError(BaseModel):
+    """Class to store document error information"""
+    position: int
+    expected: str
+    actual: str
+    context: str = ""
+    
+class VerificationResult(BaseModel):
+    """Class to store document verification results"""
+    match_percentage: float
+    errors: List[DocumentError] = []
+    success: bool = False
+    
+    @property
+    def is_successful(self):
+        """Return True if match percentage is above 99%"""
+        return self.match_percentage >= 99.0 and len(self.errors) == 0
+
+class DocumentRetyper:
+    """Class to retype documents with real keyboard typing"""
+    def __init__(self):
+        self.document_retyper = None
+        self.keyboard_typer = RealKeyboardTyper(delay=0.01)  # Slightly slower for reliability
+        self.keyboard = KeyboardController()
+        self.mouse = MouseController()
+        self.original_content = ""
+        self.retyped_content = ""
+        
+    async def async_init(self):
+        """Async initialization method"""
+        self.document_retyper = Agent(
+            # 'google-gla:gemini-2.0-flash',
+            'groq:llama-3.3-70b-versatile',
+            result_type=RetypedDocument,
+            system_prompt=(
+                "You are a document retyper assistant. Your task is to carefully read and retype"
+                " documents, preserving their exact original format and content. "
+                "BOLD AND ITALIC TEXT SHOULD BE PRESERVED. "
+                 "For formatting, use the following markers:"
+            " **bold text** for bold,"
+            " __underlined text__ for underline,"
+            " _italic text_ for italic."
+            "use the addition functions like the ""addition"" function like toggle_bold, toggle_underline,toggle_italic "
+                "USE THE REQUIRED TOOLS TO MAKE A CLEAR PROGRESS AND FASTER ERROR FREE RETYPING."
+                "BULLETS, NUMBERING LIKE 1.2.3 ETC, AND PARAGRAPH SPACING SHOULD BE PRESERVED."
+                "TYPE EXACT HOW THE DOCUMENT IS NO MORE STAFF ADDED IN IT AND BE CAREFUL."
+                "Do not analyze, summarize, or modify the document in any way. Do not skip empty lines"
+                " or spaces. Simply reproduce the document exactly as provided, maintaining all"
+                "formatting, HEADINGS, bullet points, paragraph breaks, and structure."
+                "Make sure that the Numbering and Bullet Points are preserved. And also incase ` is used in the document"
+                " Make sure to preserve all newlines and paragraph spacing exactly as in the original."
+            ),
+        )
+        return self
+
+    async def navigate_to_position(self, position: int):
+        """Navigate cursor to specific position in document"""
+        # First go to start of document
+        self.keyboard.press(Key.ctrl)
+        self.keyboard.press(Key.home)
+        self.keyboard.release(Key.home)
+        self.keyboard.release(Key.ctrl)
+        await asyncio.sleep(0.2)
+        
+        # Now move right the required number of characters
+        for _ in range(position):
+            self.keyboard.press(Key.right)
+            self.keyboard.release(Key.right)
+            await asyncio.sleep(0.005)  # Small delay to prevent missed keypresses
+    
+    async def select_text(self, length: int):
+        """Select specified number of characters from current position"""
+        self.keyboard.press(Key.shift)
+        for _ in range(length):
+            self.keyboard.press(Key.right)
+            self.keyboard.release(Key.right)
+            await asyncio.sleep(0.005)
+        self.keyboard.release(Key.shift)
+        await asyncio.sleep(0.1)
+    
+    async def delete_and_type(self, text: str):
+        """Delete selected text and type new text"""
+        # Delete selected text
+        self.keyboard.press(Key.delete)
+        self.keyboard.release(Key.delete)
+        await asyncio.sleep(0.1)
+        
+        # Type new text
+        for char in text:
+            self.keyboard.press(char)
+            self.keyboard.release(char)
+            await asyncio.sleep(0.01)
+    
+    async def select_all_and_copy(self):
+        """Select all text and copy to clipboard"""
+        self.keyboard.press(Key.ctrl)
+        self.keyboard.press('a')
+        self.keyboard.release('a')
+        self.keyboard.release(Key.ctrl)
+        await asyncio.sleep(0.2)
+        
+        self.keyboard.press(Key.ctrl)
+        self.keyboard.press('c')
+        self.keyboard.release('c')
+        self.keyboard.release(Key.ctrl)
+        await asyncio.sleep(0.2)
+        
+        # Get clipboard content
+        import pyperclip
+        return pyperclip.paste()
+    
+    async def find_all_errors(self, original: str, typed: str) -> List[DocumentError]:
+        """Find all errors between original and typed content"""
+        errors = []
+        
+        # Simple character-by-character comparison for precise error detection
+        min_len = min(len(original), len(typed))
+        
+        # First pass: Find character mismatches
+        position = 0
+        error_start = -1
+        
+        while position < min_len:
+            if original[position] != typed[position]:
+                # Start of an error
+                if error_start == -1:
+                    error_start = position
+            elif error_start != -1:
+                # End of an error
+                context_start = max(0, error_start - 10)
+                context_end = min(position + 10, min_len)
+                
+                errors.append(DocumentError(
+                    position=error_start,
+                    expected=original[error_start:position],
+                    actual=typed[error_start:position],
+                    context=f"...{typed[context_start:context_end]}..."
+                ))
+                error_start = -1
+            position += 1
+        
+        # Handle error at end of document
+        if error_start != -1:
+            errors.append(DocumentError(
+                position=error_start,
+                expected=original[error_start:min_len],
+                actual=typed[error_start:min_len],
+                context=f"...{typed[max(0, error_start-10):min_len]}"
+            ))
+        
+        # Check for length differences
+        if len(original) > len(typed):
+            # Missing content at the end
+            errors.append(DocumentError(
+                position=len(typed),
+                expected=original[len(typed):len(typed)+20] + "..." if len(original) - len(typed) > 20 else original[len(typed):],
+                actual="",
+                context="[End of document - missing content]"
+            ))
+        elif len(typed) > len(original):
+            # Extra content at the end
+            errors.append(DocumentError(
+                position=len(original),
+                expected="",
+                actual=typed[len(original):len(original)+20] + "..." if len(typed) - len(original) > 20 else typed[len(original):],
+                context="[End of document - extra content]"
+            ))
+        
+        return errors
+    
+    async def auto_fix_errors(self, errors: List[DocumentError]):
+        """Automatically fix all identified errors"""
+        print(f"\nFixing {len(errors)} errors automatically...")
+        
+        # Sort errors by position in descending order (fix from end to start)
+        # This prevents position shifting issues
+        sorted_errors = sorted(errors, key=lambda x: x.position, reverse=True)
+        
+        for i, error in enumerate(sorted_errors):
+            print(f"Fixing error {i+1}/{len(errors)} at position {error.position}...")
+            
+            # Navigate to error position
+            await self.navigate_to_position(error.position)
+            
+            # Select the error text
+            await self.select_text(len(error.actual) if error.actual else 0)
+            
+            # Replace with correct text
+            await self.delete_and_type(error.expected)
+            
+            # Small pause between operations
+            await asyncio.sleep(0.2)
+            
+        print("All errors fixed automatically!")
+    
+    async def verify_and_correct_document(self, original_content: str):
+        """Verify document against original and fix any errors"""
+        print("\n=== Starting Document Verification ===")
+        print("1. Selecting all text and copying to analyze...")
+        
+        # Get current document content
+        current_content = await self.select_all_and_copy()
+        self.retyped_content = current_content
+        
+        # Calculate similarity
+        similarity = SequenceMatcher(None, original_content, current_content).ratio() * 100
+        print(f"Document similarity: {similarity:.2f}%")
+        
+        # Find all errors
+        print("2. Analyzing for errors...")
+        errors = await self.find_all_errors(original_content, current_content)
+        
+        if not errors and similarity >= 99.0:
+            print("✓ Verification complete - document is perfect!")
+            return True
+        
+        # Report errors
+        print(f"\nFound {len(errors)} errors to fix:")
+        for i, error in enumerate(errors[:5]):  # Show first 5 errors only
+            print(f"  Error {i+1}: Position {error.position}")
+            print(f"    Expected: '{error.expected}'")
+            print(f"    Actual:   '{error.actual}'")
+            print(f"    Context:  {error.context}")
+        
+        if len(errors) > 5:
+            print(f"  ... and {len(errors) - 5} more errors")
+        
+        # Auto-fix errors
+        await self.auto_fix_errors(errors)
+        
+        # Verify again
+        print("\nVerifying fixes...")
+        fixed_content = await self.select_all_and_copy()
+        final_similarity = SequenceMatcher(None, original_content, fixed_content).ratio() * 100
+        print(f"Final document similarity: {final_similarity:.2f}%")
+        
+        if final_similarity >= 99.5:
+            print("✓ All errors successfully fixed!")
+            return True
+        else:
+            print("⚠ Some errors may remain. Consider running verification again.")
+            return False
+    
+    async def apply_formatting(self, formatting_elements):
+        """Apply formatting to the document"""
+        print("\n=== Applying Document Formatting ===")
+        
+        for fmt_type, positions in formatting_elements.items():
+            print(f"Applying {fmt_type} formatting to {len(positions)} elements...")
+            
+            for start, end, text in positions:
+                print(f"  Formatting '{text}'...")
+                
+                # Navigate to position
+                await self.navigate_to_position(start)
+                
+                # Select text
+                await self.select_text(end - start)
+                
+                # Apply formatting
+                self.keyboard.press(Key.ctrl)
+                
+                if fmt_type == "bold":
+                    self.keyboard.press('b')
+                    self.keyboard.release('b')
+                elif fmt_type == "italic":
+                    self.keyboard.press('i')
+                    self.keyboard.release('i')
+                elif fmt_type == "underline":
+                    self.keyboard.press('u')
+                    self.keyboard.release('u')
+                
+                self.keyboard.release(Key.ctrl)
+                await asyncio.sleep(0.2)
+        
+        print("Formatting complete!")
+    
+    async def extract_formatting_elements(self, content: str):
+        """Extract formatting elements from markdown-style formatting"""
+        formatting = {
+            "bold": [],       # (start_pos, end_pos, text)
+            "italic": [],     # (start_pos, end_pos, text)
+            "underline": []   # (start_pos, end_pos, text)
+        }
+        
+        # Find bold text (**text**)
+        bold_pattern = re.compile(r'\*\*(.*?)\*\*')
+        for match in bold_pattern.finditer(content):
+            start = match.start()
+            end = match.end()
+            text = match.group(1)
+            # Calculate position without markers
+            clean_content = re.sub(r'\*\*(.*?)\*\*', r'\1', content[:start])
+            clean_pos = len(clean_content)
+            formatting["bold"].append((clean_pos, clean_pos + len(text), text))
+        
+        # Find italic text (_text_)
+        italic_pattern = re.compile(r'_(.*?)_')
+        for match in italic_pattern.finditer(content):
+            start = match.start()
+            end = match.end()
+            text = match.group(1)
+            # Calculate position without markers
+            clean_content = re.sub(r'_(.*?)_', r'\1', content[:start])
+            clean_content = re.sub(r'\*\*(.*?)\*\*', r'\1', clean_content)
+            clean_pos = len(clean_content)
+            formatting["italic"].append((clean_pos, clean_pos + len(text), text))
+        
+        # Find underline text (__text__)
+        underline_pattern = re.compile(r'__(.*?)__')
+        for match in underline_pattern.finditer(content):
+            start = match.start()
+            end = match.end()
+            text = match.group(1)
+            # Calculate position without markers
+            clean_content = re.sub(r'__(.*?)__', r'\1', content[:start])
+            clean_content = re.sub(r'_(.*?)_', r'\1', clean_content)
+            clean_content = re.sub(r'\*\*(.*?)\*\*', r'\1', clean_content)
+            clean_pos = len(clean_content)
+            formatting["underline"].append((clean_pos, clean_pos + len(text), text))
+        
+        return formatting
+    
+    async def prepare_clean_content(self, content: str):
+        """Remove formatting markers from content"""
+        clean = content
+        clean = re.sub(r'\*\*(.*?)\*\*', r'\1', clean)  # Remove bold markers
+        clean = re.sub(r'_(.*?)_', r'\1', clean)        # Remove italic markers
+        clean = re.sub(r'__(.*?)__', r'\1', clean)      # Remove underline markers
+        return clean
+
+    async def retype_document_with_real_typing(self, document_text: str, typing_position=None):
+        """Function to retype a document using real keyboard inputs with formatting support"""
+        content = DocumentContent(text=document_text)
+        self.original_content = document_text
+        
+        # Extract formatting elements before removing markers
+        formatting_elements = await self.extract_formatting_elements(document_text)
+        
+        # Prepare clean content (without formatting markers)
+        clean_content = await self.prepare_clean_content(document_text)
+        
+        # Show information
+        print(f"Reading document content...")
+        print(f"Document has {len(clean_content)} characters")
+        print(f"Found formatting: {sum(len(elements) for elements in formatting_elements.values())} elements")
+        
+        # Run the agent silently to process the document
+        result = await self.document_retyper.run(
+            f"Please retype the following document exactly as it is, preserving all formatting, spacing,"
+            f" line breaks, and paragraph structure: {content.text}"
+        )
+        
+        # Prepare user for typing
+        print(f"Preparing to type the document with real keyboard inputs.")
+        print(f"Please open the target file/editor and place your cursor where typing should begin.")
+        print(f"You have 5 seconds to get ready...")
+        
+        # Countdown
+        for i in range(5, 0, -1):
+            print(f"{i}...")
+            await asyncio.sleep(1)
+        
+        print("Typing now! The system will type the entire document first...")
+        
+        # First type the clean content (without formatting)
+        try:
+            await self.keyboard_typer.type_with_verification(clean_content, typing_position, True)
+            print(f"\nBasic document content typed successfully!")
+            
+            # Now verify the document
+            print("\nVerifying document content...")
+            success = await self.verify_and_correct_document(clean_content)
+            
+            if success:
+                # Apply formatting
+                if sum(len(elements) for elements in formatting_elements.values()) > 0:
+                    print("\nApplying document formatting...")
+                    await self.apply_formatting(formatting_elements)
+                
+                print(f"\nDocument successfully retyped and verified!")
+            else:
+                print("\nDocument verification failed. Please try again or check for issues.")
+            
+        except Exception as e:
+            print(f"Error during typing: {str(e)}")
+            traceback.print_exc()
+        
+        return clean_content
+
+    async def display_document_info(self, file_path: str):
+        """Display basic document info without typing the content"""
+        # Check if it's a docx file
+
+        file_ext = analyze_docx(file_path)
+        print(f"File extension: {file_ext}")
+
+        if file_path.endswith('.docx'):
+            import docx
+            doc = docx.Document(file_path)
+            # Count paragraphs and characters in docx
+            paragraphs = len(doc.paragraphs)
+            char_count = sum(len(paragraph.text) for paragraph in doc.paragraphs)
+            print(f"Document contains {paragraphs} paragraphs and {char_count} characters.")
+            print("Starting retyping process...\n")
+        else:
+            # For regular text files
+            with open(file_path, 'r') as f:
+                content = f.read()
+                
+            print(f"Document loaded: {file_path}")
+            line_count = content.count('\n') + 1
+            char_count = len(content)
+            print(f"Document contains {line_count} lines and {char_count} characters.")
+            print("Starting retyping process...\n")
+
+# Function to extract text from docx with better formatting preservation
+def extract_text_from_docx(docx_path):
+    """Extract text from docx file with enhanced formatting preservation"""
+    import docx
+    doc = docx.Document(docx_path)
+    full_text = []
+    
+    # Process paragraphs with enhanced formatting
+    for para in doc.paragraphs:
+        # Don't skip empty paragraphs - they're part of formatting
+        # Handle heading styles
+        if para.style.name.startswith('Heading'):
+            # Add appropriate formatting based on heading level
+            level = int(para.style.name.replace('Heading', '')) if para.style.name != 'Heading' else 1
+            prefix = '#' * level + ' ' if level > 0 else ''
+            full_text.append(f"{prefix}{para.text}")
+        else:
+            # Regular paragraph - include even if empty to preserve spacing
+            full_text.append(para.text)
+    
+    # Process tables if any
+    for table in doc.tables:
+        table_rows = []
+        for row in table.rows:
+            row_text = []
+            for cell in row.cells:
+                row_text.append(cell.text.strip())
+            table_rows.append(" | ".join(row_text))
+        full_text.append("\n".join(table_rows))
+    
+    # Join with paragraph spacing preserved
+    return "\n\n".join(full_text)
+
+# Example usage
+if __name__ == "__main__":
+    import asyncio
+    import os
+    import docx
+    import random
+    from docx import Document
+    
+    async def main():
+        # Create and initialize the processor
+        retyper = DocumentRetyper()
+        await retyper.async_init()
+        
+        # Handle command line arguments if provided
+        if len(sys.argv) > 1:
+            file_path = sys.argv[1]
+            if not os.path.exists(file_path):
+                print(f"Error: File {file_path} not found.")
+                return
+            
+            output_file = "retyped_output.txt"
+            if len(sys.argv) > 2:
+                output_file = sys.argv[2]
+        else:
+            # Default sample document path
+            file_path = "doc.docx"
+            output_file = "my_data.txt"
+            
+        # Show basic info about the document
+        await retyper.display_document_info(file_path)
+        
+        # Get document text from file
+        if file_path.endswith('.docx'):
+            document_text = extract_text_from_docx(file_path)
+        else:
+            with open(file_path, 'r') as f:
+                document_text = f.read()
+        
+        # Prepare for typing
+        print("Please open a text editor where you want the typing to occur.")
+        input("Press Enter when you're ready to begin typing...")
+        
+        # Get cursor position (optional)
+        print("Place your cursor where typing should begin and keep it there.")
+        print("Typing will start in 3 seconds...")
+        await asyncio.sleep(3)
+        
+        # Current mouse position will be used as the focus point
+        mouse = MouseController()
+        cursor_position = mouse.position
+        
+        # Run the retyping directly to file
+        try:
+            retyped_content = await retyper.retype_document_with_real_typing(document_text, cursor_position)
+            print(f"Document has been retyped with real keyboard inputs!")
+        except Exception as e:
+            print(f"Error occurred: {str(e)}")
+            traceback.print_exc()
+    
+    asyncio.run(main())

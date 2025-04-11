@@ -1,0 +1,630 @@
+QUESTION ONE
+The message delivered by His Majesty the Kabaka during the Christmas and New Year celebrations is a profound example of effective communication. It embodies the 7Cs of communication which are Clarity, Conciseness, Concreteness, Correctness, Coherence, Completeness, and Courtesy. Below is an evaluation of the message using these principles;
+
+1. Clarity
+The message is clear and easy to understand. His Majesty uses simple yet powerful language to convey his thoughts, ensuring that his audience, regardless of their educational background, can grasp the key points. For instance, when he says, "Let us strive for renewal by focusing on strengthening our traditions and values, which bind us together," the call for unity and cultural preservation is unambiguous. This clarity is crucial in a diverse society like Uganda, where people from different regions and backgrounds need a common understanding to foster unity.
+
+2. Conciseness
+The KabakaNs message is concise and to the point. He avoids unnecessary jargon or lengthy explanations, making his speech impactful. For example, he succinctly addresses the youth: "Do not make decisions hastily without proper reflection or guidance from elders." This direct advice is both memorable and actionable, especially for young Ugandans who may be influenced by peer pressure or impulsive behavior. In a country where youth unemployment and social challenges are prevalent, such concise guidance is invaluable.
+
+3. Concreteness
+            if not os.path.exists(file_path):
+                print(f"Sample document not found at {file_path}, creating a simple one...")
+                # Create a sample .docx file
+                doc = Document()
+                doc.add_heading('Sample Document', 0)
+                doc.add_paragraph('This is a sample document for testing the document retyper.')
+                
+                # Add an empty paragraph for spacing
+                doc.add_paragraph('')
+                
+                doc.add_heading('Introduction', level=2)
+                doc.add_paragraph('This document serves as a test case for our document retyping tool.')
+                
+                # Add multiple paragraphs with different spacing
+                doc.add_paragraph('This paragraph demonstrates the preservation of paragraph spacing.')
+                doc.add_paragraph('This second paragraph should maintain proper distance from the previous one.')
+                
+                doc.add_heading('Key Features', level=2)
+                
+                # Add a bulleted list
+                features = doc.add_paragraph()
+                features.add_run('- Exact reproduction of text\n')
+                features.add_run('- Preservation of formatting\n')
+                features.add_run('- Maintenance of structure\n')
+                features.add_run('- No analysis or modification')
+                
+                # Add another empty paragraph
+                doc.add_paragraph('')
+                
+                doc.add_heading('Conclusion', level=2)
+                doc.add_paragraph('This sample demonstrates how our tool can retype document content exactly as provided.')
+                
+                # Save the document
+                doc.save(file_path)
+
+
+# async def process_document(file_content, file_info, reg_number, password, typing_speed, progress_callback, take_screenshots, headless, chunk_size):
+#     """Process document using browser automation"""
+#     try:
+#         # Validate inputs
+#         is_valid, error_message = validate_credentials(reg_number, password)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+        
+#         is_valid, error_message = validate_document_content(file_content)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+        
+#         is_valid, error_message = validate_browser_settings(headless, typing_speed)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+        
+#         is_valid, error_message = validate_chunk_settings(chunk_size)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+        
+#         # Clear any previous screenshots
+#         st.session_state.screenshots = []
+        
+#         # Prepare content chunks if needed
+#         content_chunks = []
+#         if len(file_content) > chunk_size:
+#             content_chunks = chunk_content(file_content, chunk_size)
+#             progress_callback(f"Document split into {len(content_chunks)} chunks for processing", 0.1)
+#         else:
+#             content_chunks = [file_content]
+        
+#         # Initialize automation
+#         automation = VClassAutomation(headless=headless, typing_speed=typing_speed)
+        
+#         # Process each chunk
+#         results = []
+#         for i, chunk in enumerate(content_chunks):
+#             progress_value = 0.1 + ((i / len(content_chunks)) * 0.8)
+#             progress_callback(f"Processing chunk {i+1} of {len(content_chunks)}", progress_value)
+            
+#             # For first chunk, do full navigation
+#             if i == 0:
+#                 result = await automation.run_automation(
+#                     reg_number=reg_number,
+#                     password=password,
+#                     document_content=chunk,
+#                     take_screenshots=take_screenshots,
+#                     progress_callback=progress_callback
+#                 )
+#                 results.append(result)
+                
+#                 # If first chunk fails, stop processing
+#                 if not result.get("success", False):
+#                     return result
+                
+#                 # Store screenshots
+#                 if "screenshots" in result:
+#                     st.session_state.screenshots.extend(result["screenshots"])
+#             else:
+#                 # For subsequent chunks, just type content (assuming we're already in editor)
+#                 result = await automation.run_automation(
+#                     reg_number=reg_number,
+#                     password=password,
+#                     document_content=chunk,
+#                     take_screenshots=take_screenshots,
+#                     progress_callback=progress_callback
+#                 )
+#                 results.append(result)
+                
+#                 # If any chunk fails, return the error
+#                 if not result.get("success", False):
+#                     return result
+                
+#                 # Store screenshots
+#                 if "screenshots" in result:
+#                     st.session_state.screenshots.extend(result["screenshots"])
+        
+#         # All chunks processed successfully
+#         return {
+#             "success": True,
+#             "message": f"Document successfully typed into VClass editor ({len(content_chunks)} chunks)",
+#             "screenshots": st.session_state.screenshots
+#         }
+
+#     except Exception as e:
+#         logger.error(f"Processing error: {str(e)}")
+#         return handle_automation_error(e)
+# async def verify_document_content(retyper, original_content):
+#     """
+#     Standalone verification function that can be called from a button in your main app
+    
+#     Args:
+#         retyper: An initialized DocumentRetyper instance
+#         original_content: The original document content to verify against
+        
+#     Returns:
+#         VerificationResult: Object containing verification results
+#     """
+#     # Ensure the retyper is initialized
+#     if not retyper.document_retyper:
+#         print("Initializing retyper...")
+#         await retyper.async_init()
+    
+#     # Run the verification
+#     verification_result = await retyper.verify_document(original_content)
+    
+#     # Print user-friendly summary
+#     if verification_result.success:
+#         print(f"✅ Verification PASSED with {verification_result.match_percentage:.2f}% match")
+#     else:
+#         print(f"❌ Verification FAILED with {verification_result.match_percentage:.2f}% match")
+#         print(f"Found {len(verification_result.errors)} errors.")
+        
+#         if verification_result.errors:
+#             print("\nError examples:")
+#             for i, error in enumerate(verification_result.errors[:3]):  # Show only first 3 errors
+#                 print(f"  Error {i+1} at position {error.position}:")
+#                 print(f"    Expected: \"{error.expected}\"")
+#                 print(f"    Actual:   \"{error.actual}\"")
+            
+#             if len(verification_result.errors) > 3:
+#                 print(f"  ... and {len(verification_result.errors) - 3} more errors")
+                
+#             print("\nWould you like to fix these errors? (This can be implemented with a follow-up function call)")
+    
+#     return verification_result
+
+# # Example usage in your main app:
+# # verify_button.on_click(lambda: asyncio.create_task(verify_document_content(retyper, original_content)))
+# async def process_document(file_path: str, reg_number: str, password: str, 
+#                           typing_speed: int, headless: bool, chunk_size: int,
+#                           take_screenshots: bool, progress_callback=None) -> Dict[str, Any]:
+#     """Process document through VClass automation with improved handling
+    
+#     Args:
+#         file_path: Path to the document file
+#         reg_number: VClass registration number
+#         password: VClass password
+#         typing_speed: Characters per second for typing
+#         headless: Whether to run in headless mode
+#         chunk_size: Size of document chunks
+#         take_screenshots: Whether to capture screenshots
+#         progress_callback: Callback function for progress updates
+        
+#     Returns:
+#         Dictionary with results
+#     """
+#     try:
+#         # Extract document content
+#         if progress_callback:
+#             progress_callback("Extracting document content...", 0.1)
+        
+#         content = extract_file_content(file_path)
+        
+#         # Log content length for debugging
+#         logger.info(f"Extracted content length: {len(content)}")
+        
+#         # Split into chunks if needed - with improved chunking
+#         content_chunks = []
+#         if len(content) > chunk_size:
+#             content_chunks = chunk_content(content, chunk_size)
+#             if progress_callback:
+#                 progress_callback(f"Document split into {len(content_chunks)} chunks for processing", 0.15)
+#         else:
+#             content_chunks = [content]
+        
+#         # Initialize automation with appropriate typing speed - slower for accuracy
+#         automation = VClassAutomation(headless=headless, typing_speed=typing_speed)
+        
+#         # Process each chunk
+#         results = []
+#         screenshots = []
+        
+#         for i, chunk in enumerate(content_chunks):
+#             chunk_progress_start = 0.2 + ((i / len(content_chunks)) * 0.7)
+#             chunk_progress_end = 0.2 + (((i + 1) / len(content_chunks)) * 0.7)
+            
+#             # Detailed progress updates
+#             if progress_callback:
+#                 progress_callback(
+#                     f"Processing chunk {i+1} of {len(content_chunks)} ({len(chunk)} characters)", 
+#                     chunk_progress_start
+#                 )
+            
+#             # Run automation for this chunk
+#             result = await automation.run_automation(
+#                 reg_number=reg_number,
+#                 password=password,
+#                 document_content=chunk,
+#                 take_screenshots=take_screenshots,
+#                 progress_callback=lambda msg, prog: progress_callback(
+#                     msg, 
+#                     chunk_progress_start + (prog * (chunk_progress_end - chunk_progress_start))
+#                 ) if progress_callback else None
+#             )
+            
+#             results.append(result)
+            
+#             # If any chunk fails, return the error
+#             if not result.get("success", False):
+#                 return result
+            
+#             # Collect screenshots
+#             if "screenshots" in result:
+#                 screenshots.extend(result["screenshots"])
+            
+#             # Add a brief pause between chunks to ensure system stability
+#             await asyncio.sleep(1)
+        
+#         # All chunks processed successfully
+#         return {
+#             "success": True,
+#             "message": f"Document successfully typed into VClass editor ({len(content_chunks)} chunks)",
+#             "screenshots": screenshots
+#         }
+        
+#     except Exception as e:
+#         logger.error(f"Processing error: {str(e)}")
+#         return {
+#             "success": False,
+#             "error": f"Processing failed: {str(e)}"
+#         }
+
+# Process document through browser automation
+# async def process_document(file_content, file_info, reg_number, password, typing_speed, progress_callback, take_screenshots, headless, chunk_size):
+#     """Process document using right_hand agent for keyboard typing"""
+#     try:
+#         # Validate inputs
+#         is_valid, error_message = validate_credentials(reg_number, password)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+            
+#         is_valid, error_message = validate_document_content(file_content)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+            
+#         is_valid, error_message = validate_browser_settings(headless, typing_speed)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+            
+#         is_valid, error_message = validate_chunk_settings(chunk_size)
+#         if not is_valid:
+#             return {"success": False, "error": error_message}
+            
+#         # Clear any previous screenshots
+#         st.session_state.screenshots = []
+            
+#         # Initialize the document retyper from right_hand_agent
+#         progress_callback("Initializing document retyper...", 0.1)
+#         retyper = DocumentRetyper()
+#         await retyper.async_init()
+        
+#         # Adjust typing speed (modify the delay parameter)
+#         speed_factor = typing_speed / 50  # Convert UI speed to a factor
+#         retyper.keyboard_typer.delay = 0.01 / speed_factor  # Faster typing = smaller delay
+        
+#         # Prepare content chunks if needed
+#         content_chunks = []
+#         if len(file_content) > chunk_size:
+#             content_chunks = chunk_content(file_content, chunk_size)
+#             progress_callback(f"Document split into {len(content_chunks)} chunks for processing", 0.2)
+#         else:
+#             content_chunks = [file_content]
+            
+#         # Process each chunk
+#         results = []
+#         for i, chunk in enumerate(content_chunks):
+#             progress_value = 0.2 + ((i / len(content_chunks)) * 0.7)
+            
+#             # For first chunk, prompt user to position cursor
+#             if i == 0:
+#                 progress_callback("Please position your cursor where typing should begin", progress_value)
+#                 # Give user time to position cursor
+#                 for countdown in range(5, 0, -1):
+#                     progress_callback(f"Typing will begin in {countdown} seconds...", progress_value)
+#                     await asyncio.sleep(1)
+                    
+#             else:
+#                 progress_callback(f"Processing chunk {i+1} of {len(content_chunks)}", progress_value)
+#                 await asyncio.sleep(1)  # Brief pause between chunks
+            
+#             # Get current mouse position for typing focus
+#             mouse = MouseController()
+#             cursor_position = mouse.position
+            
+#             try:
+#                 # Use the document retyper to type content
+#                 retyped_content = await retyper.retype_document_with_real_typing(
+#                     document_text=chunk,
+#                     typing_position=cursor_position
+#                 )
+                
+#                 # Take screenshot if enabled
+#                 if take_screenshots:
+#                     screenshot = pyautogui.screenshot()
+#                     screenshot_buffer = io.BytesIO()
+#                     screenshot.save(screenshot_buffer, format="PNG")
+#                     screenshot_data = screenshot_buffer.getvalue()
+#                     st.session_state.screenshots.append(screenshot_data)
+                
+#                 # Record success for this chunk
+#                 results.append({
+#                     "success": True,
+#                     "chunk": i+1,
+#                     "content_length": len(chunk)
+#                 })
+                
+#             except Exception as e:
+#                 logger.error(f"Error typing chunk {i+1}: {str(e)}")
+#                 return {
+#                     "success": False,
+#                     "error": f"Error typing chunk {i+1}: {str(e)}",
+#                     "screenshots": st.session_state.screenshots
+#                 }
+        
+#         # All chunks processed successfully
+#         progress_callback("Document typing completed successfully", 0.95)
+#         return {
+#             "success": True,
+#             "message": f"Document successfully typed ({len(content_chunks)} chunks)",
+#             "screenshots": st.session_state.screenshots
+#         }
+        
+#     except Exception as e:
+#         logger.error(f"Processing error: {str(e)}")
+#         traceback.print_exc()
+#         return handle_automation_error(e)
+    
+async def process_document(
+    file_content, 
+    validation_result, 
+    reg_number, 
+    password, 
+    typing_speed, 
+    progress_callback, 
+    take_screenshots, 
+    headless_mode, 
+    chunk_size
+):
+    """Process document using DocumentRetyper for keyboard typing"""
+    try:
+        # Validate inputs from validation_result if needed
+        if not validation_result.get("is_valid", False):
+            return {"success": False, "error": validation_result.get("error", "Invalid input")}
+        
+        # Clear any previous screenshots
+        if hasattr(st.session_state, 'screenshots'):
+            st.session_state.screenshots = []
+        else:
+            st.session_state.screenshots = []
+            
+        # Initialize the document retyper
+        progress_callback("Initializing document retyper...", 0.1)
+        retyper = DocumentRetyper()
+        await retyper.async_init()
+        
+        # Adjust typing speed (modify the delay parameter)
+        speed_factor = typing_speed / 50  # Convert UI speed to a factor
+        retyper.keyboard_typer.delay = 0.03 / speed_factor  # Faster typing = smaller delay
+        
+        # Prepare content chunks if needed
+        content_chunks = []
+        if len(file_content) > chunk_size:
+            # Split content into chunks at paragraph boundaries
+            paragraphs = file_content.split('\n\n')
+            current_chunk = ""
+            
+            for paragraph in paragraphs:
+                if len(current_chunk) + len(paragraph) > chunk_size and current_chunk:
+                    content_chunks.append(current_chunk)
+                    current_chunk = paragraph + '\n\n'
+                else:
+                    if current_chunk:
+                        current_chunk += paragraph + '\n\n'
+                    else:
+                        current_chunk = paragraph + '\n\n'
+            
+            if current_chunk:
+                content_chunks.append(current_chunk)
+                
+            progress_callback(f"Document split into {len(content_chunks)} chunks for processing", 0.2)
+        else:
+            content_chunks = [file_content]
+            
+        # Process each chunk
+        results = []
+        for i, chunk in enumerate(content_chunks):
+            progress_value = 0.2 + ((i / len(content_chunks)) * 0.7)
+            
+            # For first chunk, prompt user to position cursor
+            if i == 0:
+                progress_callback("Please position your cursor where typing should begin", progress_value)
+                progress_callback("Make sure the editor window is focused", progress_value)
+                # Give user time to position cursor
+                for countdown in range(5, 0, -1):
+                    progress_callback(f"Typing will begin in {countdown} seconds...", progress_value)
+                    await asyncio.sleep(1)
+                    
+            else:
+                progress_callback(f"Processing chunk {i+1} of {len(content_chunks)}", progress_value)
+                await asyncio.sleep(1)  # Brief pause between chunks
+            
+            # Get current mouse position for typing focus
+            mouse = MouseController()
+            cursor_position = mouse.position
+            
+            try:
+                # Use the document retyper to type content
+                retyped_content = await retyper.retype_document_with_real_typing(
+                    document_text=chunk,
+                    typing_position=cursor_position
+                )
+                
+                # Take screenshot if enabled
+                if take_screenshots:
+                    screenshot = pyautogui.screenshot()
+                    screenshot_buffer = io.BytesIO()
+                    screenshot.save(screenshot_buffer, format="PNG")
+                    screenshot_data = screenshot_buffer.getvalue()
+                    st.session_state.screenshots.append(screenshot_data)
+                
+                # Record success for this chunk
+                results.append({
+                    "success": True,
+                    "chunk": i+1,
+                    "content_length": len(chunk)
+                })
+                
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                return {
+                    "success": False,
+                    "error": f"Error typing chunk {i+1}: {str(e)}",
+                    "screenshots": st.session_state.screenshots
+                }
+        
+        # All chunks processed successfully
+        progress_callback("Document typing completed successfully", 0.95)
+        return {
+            "success": True,
+            "message": f"Document successfully typed ({len(content_chunks)} chunks)",
+            "screenshots": st.session_state.screenshots
+        }
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": f"Processing error: {str(e)}",
+            "screenshots": st.session_state.screenshots if hasattr(st.session_state, 'screenshots') else []
+        }
+def extract_file_content(file_path: str) -> str:
+    """Extract text content from file with improved encoding handling
+    
+    Args:
+        file_path: Path to the file
+        
+    Returns:
+        Extracted text content
+    """
+    file_ext = Path(file_path).suffix.lower()
+    
+    try:
+        if file_ext == '.docx':
+            import docx
+            doc = docx.Document(file_path)
+            # Preserve paragraph breaks more carefully
+            return "\n".join([para.text for para in doc.paragraphs])
+        else:
+            # First try utf-8 encoding
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except UnicodeDecodeError:
+                # Try with different encodings if utf-8 fails
+                encodings = ['latin-1', 'cp1252', 'iso-8859-1']
+                for encoding in encodings:
+                    try:
+                        with open(file_path, 'r', encoding=encoding) as f:
+                            return f.read()
+                    except UnicodeDecodeError:
+                        continue
+                
+                # If all encodings fail, try binary mode and decode with errors='replace'
+                with open(file_path, 'rb') as f:
+                    content = f.read()
+                    return content.decode('utf-8', errors='replace')
+    except Exception as e:
+        logger.error(f"Error extracting content: {str(e)}")
+        raise
+
+
+def chunk_content(content: str, chunk_size: int) -> List[str]:
+    """Split content into manageable chunks with improved logic
+    
+    Args:
+        content: Text content to split
+        chunk_size: Maximum size of each chunk
+        
+    Returns:
+        List of content chunks
+    """
+    # Return as single chunk if small enough
+    if len(content) <= chunk_size:
+        return [content]
+    
+    chunks = []
+    paragraphs = content.split('\n\n')
+    
+    current_chunk = ""
+    for para in paragraphs:
+        # Handle the case where a single paragraph is larger than chunk_size
+        if len(para) > chunk_size:
+            # If we have accumulated content in current_chunk, add it first
+            if current_chunk:
+                chunks.append(current_chunk)
+                current_chunk = ""
+                
+            # Split the large paragraph by lines
+            lines = para.split('\n')
+            current_lines = []
+            
+            for line in lines:
+                # If line itself is too large, we need to split it
+                if len(line) > chunk_size:
+                    # Add accumulated lines first
+                    if current_lines:
+                        chunks.append('\n'.join(current_lines))
+                        current_lines = []
+                    
+                    # Split the line into multiple chunks
+                    for i in range(0, len(line), chunk_size):
+                        chunks.append(line[i:i+chunk_size])
+                else:
+                    # Check if adding this line would exceed chunk size
+                    test_content = '\n'.join(current_lines + [line])
+                    if len(test_content) > chunk_size and current_lines:
+                        chunks.append('\n'.join(current_lines))
+                        current_lines = [line]
+                    else:
+                        current_lines.append(line)
+            
+            # Add any remaining lines
+            if current_lines:
+                chunks.append('\n'.join(current_lines))
+        else:
+            # Normal case: check if adding this paragraph would exceed chunk size
+            if current_chunk and len(current_chunk) + len(para) + 2 > chunk_size:
+                chunks.append(current_chunk)
+                current_chunk = para
+            else:
+                if current_chunk:
+                    current_chunk += '\n\n' + para
+                else:
+                    current_chunk = para
+    
+    # Add the last chunk if it's not empty
+    if current_chunk:
+        chunks.append(current_chunk)
+    
+    # Log chunking info
+    logger.info(f"Content length: {len(content)}, Split into {len(chunks)} chunks")
+    return chunks
+
+    
+# Extract text content from different file types
+def extract_file_content(file, file_info):
+    """Extract text content from various file types"""
+    try:
+        if file_info["type"] == "docx":
+            doc = docx.Document(io.BytesIO(file.getvalue()))
+            return "\n".join([para.text for para in doc.paragraphs])
+        else:  # txt, py, md
+            encoding = file_info.get("encoding", "utf-8")
+            try:
+                return file.getvalue().decode(encoding)
+            except UnicodeDecodeError:
+                # Fallback to latin-1 if detected encoding fails
+                return file.getvalue().decode('latin-1', errors='replace')
+    except Exception as e:
+        logger.error(f"Content extraction error: {str(e)}")
+        raise Exception(f"Failed to extract content: {str(e)}")
