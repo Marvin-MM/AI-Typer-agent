@@ -15,4 +15,7 @@ keyboard
 language_tool_python
 pyperclip
 difflib
-
+streamlit
+pynput
+pydantic
+pydantic_ai
